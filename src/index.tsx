@@ -357,31 +357,39 @@ const App: React.FC = () => {
     });
   };
 
+  // 初始化字段选项
+  const initializeFieldOptions = async () => {
+    try {
+      const table = await bitable.base.getActiveTable();
+      const view = await table.getActiveView();
+      const fieldMetaList = await view.getFieldMetaList();
+      
+      // 排除索引字段（第一个字段）
+      const options = fieldMetaList.slice(1).map(meta => ({
+        id: meta.id,
+        name: meta.name,
+        selected: true
+      }));
+      setFieldOptions(options);
+      setSelectedFields(options.map(opt => opt.id));
+    } catch (error) {
+      console.error('Error initializing field options:', error);
+    }
+  };
+
   useEffect(() => {
     // 初始化字段选项
-    const initializeFieldOptions = async () => {
-      try {
-        const table = await bitable.base.getActiveTable();
-        const view = await table.getActiveView();
-        const fieldMetaList = await view.getFieldMetaList();
-        
-        // 排除索引字段（第一个字段）
-        const options = fieldMetaList.slice(1).map(meta => ({
-          id: meta.id,
-          name: meta.name,
-          selected: true
-        }));
-        setFieldOptions(options);
-        setSelectedFields(options.map(opt => opt.id));
-      } catch (error) {
-        console.error('Error initializing field options:', error);
-      }
-    };
-    
     initializeFieldOptions();
+
+    // 添加数据表切换监听
+    const tableChangeListener = bitable.base.onSelectionChange(() => {
+      console.log('Selection changed, updating field options...');
+      initializeFieldOptions();
+    });
 
     return () => {
       // 清理函数
+      tableChangeListener();
     };
   }, []);
 
