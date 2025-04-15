@@ -34,12 +34,37 @@ interface FieldOption {
   selected: boolean;
 }
 
+// 添加飘字提示组件
+const FloatingMessage: React.FC<{ message: string }> = ({ message }) => {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      zIndex: 9999,
+      color: 'white',
+      fontSize: '24px',
+      fontWeight: 'bold',
+      textAlign: 'center',
+      padding: '20px'
+    }}>
+      {message}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
-  const [debug, setDebug] = useState<string>('');
   const [comparisons, setComparisons] = useState<RecordComparison[]>([]);
   const [isComparing, setIsComparing] = useState(false);
   const [fieldOptions, setFieldOptions] = useState<FieldOption[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [floatingMessage, setFloatingMessage] = useState<string>('');
 
   const extractParametersFromRecord = async (record: any, fields: any[], fieldMetaList: any[]): Promise<ParameterInfo[]> => {
     const paramInfo: ParameterInfo[] = [];
@@ -76,7 +101,7 @@ const App: React.FC = () => {
   const compareAllRecords = async () => {
     try {
       setIsComparing(true);
-      setDebug('开始比较所有记录...');
+      setFloatingMessage('开始比较所有记录...');
       
       const table = await bitable.base.getActiveTable();
       const view = await table.getActiveView();
@@ -98,20 +123,27 @@ const App: React.FC = () => {
         totalRecords += recordsResponse.records.length;
         pageToken = recordsResponse.pageToken;
         
-        setDebug(prev => prev + `\n已获取 ${totalRecords} 条记录`);
+        setFloatingMessage(`正在获取记录...\n已获取 ${totalRecords} 条记录`);
       } while (pageToken);
       
-      setDebug(prev => prev + `\n总共获取到 ${allRecords.length} 条记录`);
+      setFloatingMessage(`总共获取到 ${allRecords.length} 条记录\n开始比较参数...`);
       
       if (allRecords.length === 0) {
-        setDebug(prev => prev + '\n没有记录可比较');
+        setFloatingMessage('没有记录可比较');
+        setTimeout(() => setFloatingMessage(''), 2000);
         return;
       }
       
       const comparisons: RecordComparison[] = [];
+      let processedRecords = 0;
       
       // 对每条记录进行内部参数比较
       for (const record of allRecords) {
+        processedRecords++;
+        if (processedRecords % 10 === 0) {
+          setFloatingMessage(`正在比较记录...\n已处理 ${processedRecords}/${allRecords.length} 条记录`);
+        }
+        
         const params = await extractParametersFromRecord(record, fields, fieldMetaList);
         
         // 如果参数数量少于2，则跳过比较
@@ -177,10 +209,12 @@ const App: React.FC = () => {
       }
       
       setComparisons(comparisons);
-      setDebug(prev => prev + `\n比较完成，发现 ${comparisons.length} 条不一致的记录`);
+      setFloatingMessage(`比较完成！\n发现 ${comparisons.length} 条不一致的记录`);
+      setTimeout(() => setFloatingMessage(''), 3000);
     } catch (error) {
       console.error('Error comparing records:', error);
-      setDebug(prev => prev + '\n错误: ' + (error as Error).message);
+      setFloatingMessage(`比较出错: ${(error as Error).message}`);
+      setTimeout(() => setFloatingMessage(''), 3000);
     } finally {
       setIsComparing(false);
     }
@@ -225,18 +259,22 @@ const App: React.FC = () => {
       try {
         const successful = document.execCommand('copy');
         if (successful) {
-          setDebug(prev => prev + `\n已复制索引字段内容: ${indexFieldValue}`);
+          setFloatingMessage(`已复制索引字段内容: ${indexFieldValue}`);
+          setTimeout(() => setFloatingMessage(''), 2000);
         } else {
-          setDebug(prev => prev + '\n复制失败: 无法执行复制命令');
+          setFloatingMessage('复制失败: 无法执行复制命令');
+          setTimeout(() => setFloatingMessage(''), 2000);
         }
       } catch (err) {
-        setDebug(prev => prev + '\n复制错误: ' + (err as Error).message);
+        setFloatingMessage(`复制错误: ${(err as Error).message}`);
+        setTimeout(() => setFloatingMessage(''), 2000);
       }
       
       document.body.removeChild(textArea);
     } catch (error) {
       console.error('Error copying record content:', error);
-      setDebug(prev => prev + '\n复制错误: ' + (error as Error).message);
+      setFloatingMessage(`复制错误: ${(error as Error).message}`);
+      setTimeout(() => setFloatingMessage(''), 2000);
     }
   };
 
@@ -257,9 +295,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log('组件加载');
-    setDebug('组件加载');
-    
     // 初始化字段选项
     const initializeFieldOptions = async () => {
       try {
@@ -275,19 +310,15 @@ const App: React.FC = () => {
         }));
         setFieldOptions(options);
         setSelectedFields(options.map(opt => opt.id));
-        
-        setDebug(prev => prev + '\n初始化字段选项: ' + JSON.stringify(options));
       } catch (error) {
         console.error('Error initializing field options:', error);
-        setDebug(prev => prev + '\n初始化字段选项错误: ' + (error as Error).message);
       }
     };
     
     initializeFieldOptions();
 
     return () => {
-      console.log('组件卸载');
-      setDebug(prev => prev + '\n组件卸载');
+      // 清理函数
     };
   }, []);
 
@@ -353,10 +384,8 @@ const App: React.FC = () => {
         </div>
       )}
       
-      <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5' }}>
-        <h3>调试信息：</h3>
-        <pre style={{ whiteSpace: 'pre-wrap' }}>{debug}</pre>
-      </div>
+      {/* 飘字提示 */}
+      {floatingMessage && <FloatingMessage message={floatingMessage} />}
     </div>
   );
 };
