@@ -107,9 +107,9 @@ const GreenToast: React.FC<{ message: string; onClose: () => void }> = ({ messag
     <div 
       style={{
         position: 'fixed',
-        bottom: '20px',
+        top: '50%',
         left: '50%',
-        transform: 'translateX(-50%)',
+        transform: 'translate(-50%, -50%)',
         backgroundColor: 'rgba(76, 175, 80, 0.9)',
         color: 'white',
         padding: '12px 24px',
@@ -419,7 +419,15 @@ const App: React.FC = () => {
           <h3>不一致的记录 ({comparisons.length})</h3>
           {comparisons.map((comparison, index) => (
             <div key={index} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ddd' }}>
-              <h4>记录: {comparison.recordName}</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h4 style={{ margin: 0 }}>记录: {comparison.recordName}</h4>
+                <button 
+                  onClick={() => copyRecordContent(comparison)}
+                  style={{ padding: '5px 10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  复制
+                </button>
+              </div>
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                 <thead>
                   <tr>
@@ -436,12 +444,6 @@ const App: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-              <button 
-                onClick={() => copyRecordContent(comparison)}
-                style={{ marginTop: '10px', padding: '5px 10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                复制记录内容
-              </button>
             </div>
           ))}
         </div>
