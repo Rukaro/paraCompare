@@ -35,25 +35,49 @@ interface FieldOption {
 }
 
 // 添加飘字提示组件
-const FloatingMessage: React.FC<{ message: string }> = ({ message }) => {
+const FloatingMessage: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+  const [isFading, setIsFading] = useState(false);
+  
+  useEffect(() => {
+    // 1秒后开始渐隐
+    const fadeTimer = setTimeout(() => {
+      setIsFading(true);
+      
+      // 0.5秒后完全消失
+      const hideTimer = setTimeout(() => {
+        onClose();
+      }, 500);
+      
+      return () => clearTimeout(hideTimer);
+    }, 1000);
+    
+    return () => clearTimeout(fadeTimer);
+  }, [onClose]);
+  
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      zIndex: 9999,
-      color: 'white',
-      fontSize: '24px',
-      fontWeight: 'bold',
-      textAlign: 'center',
-      padding: '20px'
-    }}>
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        zIndex: 9999,
+        color: 'white',
+        fontSize: '24px',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        padding: '20px',
+        cursor: 'pointer',
+        transition: 'opacity 0.5s ease',
+        opacity: isFading ? 0 : 1
+      }}
+      onClick={onClose}
+    >
       {message}
     </div>
   );
@@ -130,7 +154,6 @@ const App: React.FC = () => {
       
       if (allRecords.length === 0) {
         setFloatingMessage('没有记录可比较');
-        setTimeout(() => setFloatingMessage(''), 2000);
         return;
       }
       
@@ -210,11 +233,9 @@ const App: React.FC = () => {
       
       setComparisons(comparisons);
       setFloatingMessage(`比较完成！\n发现 ${comparisons.length} 条不一致的记录`);
-      setTimeout(() => setFloatingMessage(''), 3000);
     } catch (error) {
       console.error('Error comparing records:', error);
       setFloatingMessage(`比较出错: ${(error as Error).message}`);
-      setTimeout(() => setFloatingMessage(''), 3000);
     } finally {
       setIsComparing(false);
     }
@@ -260,21 +281,17 @@ const App: React.FC = () => {
         const successful = document.execCommand('copy');
         if (successful) {
           setFloatingMessage(`已复制索引字段内容: ${indexFieldValue}`);
-          setTimeout(() => setFloatingMessage(''), 2000);
         } else {
           setFloatingMessage('复制失败: 无法执行复制命令');
-          setTimeout(() => setFloatingMessage(''), 2000);
         }
       } catch (err) {
         setFloatingMessage(`复制错误: ${(err as Error).message}`);
-        setTimeout(() => setFloatingMessage(''), 2000);
       }
       
       document.body.removeChild(textArea);
     } catch (error) {
       console.error('Error copying record content:', error);
       setFloatingMessage(`复制错误: ${(error as Error).message}`);
-      setTimeout(() => setFloatingMessage(''), 2000);
     }
   };
 
@@ -385,7 +402,7 @@ const App: React.FC = () => {
       )}
       
       {/* 飘字提示 */}
-      {floatingMessage && <FloatingMessage message={floatingMessage} />}
+      {floatingMessage && <FloatingMessage message={floatingMessage} onClose={() => setFloatingMessage('')} />}
     </div>
   );
 };
