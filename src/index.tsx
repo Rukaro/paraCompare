@@ -135,6 +135,7 @@ const App: React.FC = () => {
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [floatingMessage, setFloatingMessage] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string>('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const extractParametersFromRecord = async (record: any, fields: any[], fieldMetaList: any[]): Promise<ParameterInfo[]> => {
     const paramInfo: ParameterInfo[] = [];
@@ -357,6 +358,21 @@ const App: React.FC = () => {
     });
   };
 
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  const selectAllFields = () => {
+    const allFieldIds = fieldOptions.map(opt => opt.id);
+    setFieldOptions(prev => prev.map(opt => ({ ...opt, selected: true })));
+    setSelectedFields(allFieldIds);
+  };
+
+  const deselectAllFields = () => {
+    setFieldOptions(prev => prev.map(opt => ({ ...opt, selected: false })));
+    setSelectedFields([]);
+  };
+
   // 初始化字段选项
   const initializeFieldOptions = async () => {
     try {
@@ -397,21 +413,96 @@ const App: React.FC = () => {
     <div style={{ padding: '20px' }}>
       <h2>参数对照表</h2>
       
-      {/* 添加字段选择下拉菜单 */}
-      <div style={{ marginBottom: '20px' }}>
+      {/* 字段选择下拉菜单 */}
+      <div style={{ marginBottom: '20px', position: 'relative' }}>
         <h3>选择要比较的字段</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-          {fieldOptions.map(option => (
-            <label key={option.id} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <input
-                type="checkbox"
-                checked={option.selected}
-                onChange={() => handleFieldSelectionChange(option.id)}
-              />
-              {option.name}
-            </label>
-          ))}
+        <div 
+          style={{ 
+            border: '1px solid #ccc', 
+            borderRadius: '4px', 
+            padding: '8px 12px', 
+            cursor: 'pointer',
+            backgroundColor: 'white',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+          onClick={toggleDropdown}
+        >
+          <span>
+            {selectedFields.length === 0 
+              ? '请选择字段' 
+              : selectedFields.length === fieldOptions.length 
+                ? '已选择所有字段' 
+                : `已选择 ${selectedFields.length}/${fieldOptions.length} 个字段`}
+          </span>
+          <span>{isDropdownOpen ? '▲' : '▼'}</span>
         </div>
+        
+        {isDropdownOpen && (
+          <div style={{ 
+            border: '1px solid #ccc', 
+            borderRadius: '4px', 
+            padding: '8px',
+            marginTop: '5px',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            backgroundColor: 'white',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            zIndex: 1000
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              marginBottom: '8px',
+              paddingBottom: '8px',
+              borderBottom: '1px solid #eee'
+            }}>
+              <button 
+                onClick={selectAllFields}
+                style={{ 
+                  padding: '4px 8px', 
+                  backgroundColor: '#f0f0f0', 
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                全选
+              </button>
+              <button 
+                onClick={deselectAllFields}
+                style={{ 
+                  padding: '4px 8px', 
+                  backgroundColor: '#f0f0f0', 
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                取消全选
+              </button>
+            </div>
+            {fieldOptions.map(option => (
+              <div 
+                key={option.id} 
+                style={{ 
+                  padding: '6px 0',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={option.selected}
+                  onChange={() => handleFieldSelectionChange(option.id)}
+                  style={{ marginRight: '8px' }}
+                />
+                <span>{option.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       
       <button 
