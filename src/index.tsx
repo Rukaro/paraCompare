@@ -267,8 +267,8 @@ const App: React.FC = () => {
         const view = await table.getActiveView();
         const fieldMetaList = await view.getFieldMetaList();
         
-        // 初始化字段选项
-        const options = fieldMetaList.map(meta => ({
+        // 排除索引字段（第一个字段）
+        const options = fieldMetaList.slice(1).map(meta => ({
           id: meta.id,
           name: meta.name,
           selected: true
