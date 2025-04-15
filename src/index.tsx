@@ -42,25 +42,25 @@ interface ParameterEditModalProps {
 }
 
 const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose, onSave }) => {
-  const [parameterGroups, setParameterGroups] = useState<Record<number, string[]>>({});
+  const [parameterGroups, setParameterGroups] = useState<Record<string, string[]>>({});
   const [replacements, setReplacements] = useState<Record<string, Record<number, number>>>({});
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
   // 初始化参数分组和替换值
   useEffect(() => {
-    // 收集所有参数
-    const allParameters = new Set<number>();
+    // 按参数列表分组字段
+    const groups: Record<string, string[]> = {};
+    
     record.differences.forEach(diff => {
-      diff.parameters.forEach(param => allParameters.add(param));
-    });
-
-    // 按参数分组字段
-    const groups: Record<number, string[]> = {};
-    allParameters.forEach(param => {
-      groups[param] = record.differences
-        .filter(diff => diff.parameters.includes(param))
-        .map(diff => diff.fieldName);
+      // 将参数列表转换为字符串作为键
+      const paramKey = diff.parameters.sort((a, b) => a - b).join(',');
+      
+      if (!groups[paramKey]) {
+        groups[paramKey] = [];
+      }
+      
+      groups[paramKey].push(diff.fieldName);
     });
 
     setParameterGroups(groups);
@@ -197,27 +197,60 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
               )}
             </div>
             
-            {Object.entries(parameterGroups).map(([param, fields]) => (
-              <div key={param} style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>参数 {param}</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {fields.map(fieldName => (
-                    <div key={fieldName} style={{ display: 'flex', alignItems: 'center' }}>
-                      <span style={{ width: '120px', fontWeight: 500 }}>{fieldName}:</span>
-                      <input
-                        type="text"
-                        value={replacements[fieldName]?.[Number(param)] || param}
-                        onChange={(e) => handleReplacementChange(fieldName, Number(param), e.target.value)}
-                        style={{
-                          padding: '8px 10px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          width: '80px',
-                          fontSize: '14px'
-                        }}
-                      />
-                    </div>
-                  ))}
+            {Object.entries(parameterGroups).map(([paramKey, fields]) => (
+              <div key={paramKey} style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>参数组: [{paramKey}]</h4>
+                <div style={{ marginBottom: '15px' }}>
+                  <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666' }}>
+                    包含以下字段:
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {fields.map(fieldName => (
+                      <span key={fieldName} style={{ 
+                        backgroundColor: '#e3f2fd', 
+                        color: '#1976d2', 
+                        padding: '4px 8px', 
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontWeight: 500
+                      }}>
+                        {fieldName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                
+                <div style={{ marginTop: '15px' }}>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>
+                    参数替换:
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {fields.map(fieldName => {
+                      // 获取该字段的所有参数
+                      const fieldParams = record.differences.find(diff => diff.fieldName === fieldName)?.parameters || [];
+                      
+                      return fieldParams.map(param => (
+                        <div key={`${fieldName}-${param}`} style={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{ width: '120px', fontWeight: 500 }}>{fieldName}:</span>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <span style={{ marginRight: '5px', color: '#666' }}>{param} →</span>
+                            <input
+                              type="text"
+                              value={replacements[fieldName]?.[param] || param}
+                              onChange={(e) => handleReplacementChange(fieldName, param, e.target.value)}
+                              style={{
+                                padding: '8px 10px',
+                                border: '1px solid #ddd',
+                                borderRadius: '4px',
+                                width: '60px',
+                                fontSize: '14px'
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ));
+                    })}
+                  </div>
                 </div>
               </div>
             ))}
@@ -695,7 +728,8 @@ const App: React.FC = () => {
       
       // 更新记录
       if (fieldsToUpdate.length > 0) {
-        await table.updateRecord(recordId, fieldsToUpdate);
+        // 使用setRecordById方法替代updateRecord
+        await table.setRecordById(recordId, fieldsToUpdate);
         setToastMessage('参数替换成功');
         
         // 重新比较记录以更新UI
