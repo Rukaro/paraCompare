@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "buildCommand": "npx vite build",
+  "buildCommand": "chmod +x vercel-build.sh && ./vercel-build.sh",
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "routes": [
@@ -8,5 +8,8 @@
       "src": "/(.*)",
       "dest": "/"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 } 
