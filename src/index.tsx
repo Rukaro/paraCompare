@@ -43,9 +43,10 @@ interface ParameterEditModalProps {
 
 const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose, onSave }) => {
   const [parameterGroups, setParameterGroups] = useState<Record<string, string[]>>({});
-  const [replacements, setReplacements] = useState<Record<string, Record<number, number>>>({});
+  const [groupReplacements, setGroupReplacements] = useState<Record<string, Record<number, number>>>({});
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [autoFixed, setAutoFixed] = useState(false);
 
   // 初始化参数分组和替换值
   useEffect(() => {
@@ -67,62 +68,150 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
 
     // 初始化替换值
     const initialReplacements: Record<string, Record<number, number>> = {};
-    record.differences.forEach(diff => {
-      initialReplacements[diff.fieldName] = {};
-      diff.parameters.forEach(param => {
-        initialReplacements[diff.fieldName][param] = param; // 默认不替换
+    Object.keys(groups).forEach(paramKey => {
+      initialReplacements[paramKey] = {};
+      const params = paramKey.split(',').map(Number);
+      params.forEach(param => {
+        initialReplacements[paramKey][param] = param; // 默认不替换
       });
     });
-    setReplacements(initialReplacements);
+    setGroupReplacements(initialReplacements);
   }, [record]);
+
+  // 检测并修复循环替换
+  const detectAndFixCircularReplacements = (replacements: Record<string, Record<number, number>>) => {
+    let hasCircular = false;
+    const fixedReplacements = { ...replacements };
+    
+    // 检查每个参数组
+    Object.entries(fixedReplacements).forEach(([paramKey, paramReplacements]) => {
+      // 创建替换映射
+      const replacementMap = new Map<number, number>();
+      Object.entries(paramReplacements).forEach(([original, replaced]) => {
+        replacementMap.set(Number(original), Number(replaced));
+      });
+      
+      // 检测循环
+      const visited = new Set<number>();
+      const stack = new Set<number>();
+      
+      const hasCycle = (start: number): boolean => {
+        if (stack.has(start)) return true;
+        if (visited.has(start)) return false;
+        
+        visited.add(start);
+        stack.add(start);
+        
+        const next = replacementMap.get(start);
+        if (next !== undefined && next !== start) {
+          if (hasCycle(next)) return true;
+        }
+        
+        stack.delete(start);
+        return false;
+      };
+      
+      // 检查每个参数是否有循环
+      for (const [original, replaced] of replacementMap.entries()) {
+        if (original !== replaced && hasCycle(original)) {
+          hasCircular = true;
+          break;
+        }
+      }
+      
+      // 如果检测到循环，修复它
+      if (hasCircular) {
+        // 使用临时变量存储所有替换
+        const tempReplacements = new Map<number, number>();
+        
+        // 收集所有替换
+        Object.entries(paramReplacements).forEach(([original, replaced]) => {
+          const orig = Number(original);
+          const repl = Number(replaced);
+          if (orig !== repl) {
+            tempReplacements.set(orig, repl);
+          }
+        });
+        
+        // 创建替换链
+        const chains: number[][] = [];
+        const processed = new Set<number>();
+        
+        for (const [original, replaced] of tempReplacements.entries()) {
+          if (processed.has(original)) continue;
+          
+          const chain: number[] = [original];
+          let current = replaced;
+          
+          while (tempReplacements.has(current) && !processed.has(current)) {
+            chain.push(current);
+            current = tempReplacements.get(current)!;
+          }
+          
+          if (chain.length > 0) {
+            chains.push(chain);
+            chain.forEach(n => processed.add(n));
+          }
+        }
+        
+        // 修复循环
+        chains.forEach(chain => {
+          if (chain.length > 1) {
+            // 将循环替换为直接替换到最终值
+            const finalValue = chain[chain.length - 1];
+            chain.slice(0, -1).forEach(value => {
+              fixedReplacements[paramKey][value] = finalValue;
+            });
+          }
+        });
+      }
+    });
+    
+    return { hasCircular, fixedReplacements };
+  };
 
   // 验证替换是否有效
   useEffect(() => {
     // 检查是否有循环替换（例如 1->2 和 2->1）
-    const hasCircularReplacements = Object.values(replacements).some(fieldReplacements => {
-      const values = new Set<number>();
-      const replacedValues = new Set<number>();
-      
-      // 收集所有原始值和替换值
-      Object.entries(fieldReplacements).forEach(([original, replaced]) => {
-        values.add(Number(original));
-        replacedValues.add(replaced);
-      });
-      
-      // 检查是否有循环
-      for (const value of values) {
-        if (replacedValues.has(value) && fieldReplacements[value] !== value) {
-          return true;
-        }
-      }
-      
-      return false;
-    });
+    const { hasCircular, fixedReplacements } = detectAndFixCircularReplacements(groupReplacements);
     
-    setIsValid(!hasCircularReplacements);
-    if (hasCircularReplacements) {
-      setErrorMessage('检测到循环替换，例如同时将1替换为2且2替换为1');
+    if (hasCircular) {
+      setAutoFixed(true);
+      setGroupReplacements(fixedReplacements);
+      setErrorMessage('检测到循环替换，已自动修复。');
     } else {
+      setAutoFixed(false);
       setErrorMessage('');
     }
-  }, [replacements]);
+    
+    setIsValid(true); // 现在总是有效的，因为我们自动修复了循环
+  }, [groupReplacements]);
 
-  const handleReplacementChange = (fieldName: string, originalParam: number, newValue: string) => {
-    const newReplacements = { ...replacements };
-    newReplacements[fieldName] = { ...newReplacements[fieldName] };
+  const handleReplacementChange = (paramKey: string, originalParam: number, newValue: string) => {
+    const newReplacements = { ...groupReplacements };
+    newReplacements[paramKey] = { ...newReplacements[paramKey] };
     
     // 如果输入为空或不是数字，则恢复为原始值
     if (!newValue || isNaN(Number(newValue))) {
-      newReplacements[fieldName][originalParam] = originalParam;
+      newReplacements[paramKey][originalParam] = originalParam;
     } else {
-      newReplacements[fieldName][originalParam] = Number(newValue);
+      newReplacements[paramKey][originalParam] = Number(newValue);
     }
     
-    setReplacements(newReplacements);
+    setGroupReplacements(newReplacements);
   };
 
   const handleSave = () => {
-    onSave(record.recordId, replacements);
+    // 将组替换转换为字段替换
+    const fieldReplacements: Record<string, Record<number, number>> = {};
+    
+    Object.entries(parameterGroups).forEach(([paramKey, fields]) => {
+      fields.forEach(fieldName => {
+        fieldReplacements[fieldName] = { ...groupReplacements[paramKey] };
+      });
+    });
+    
+    onSave(record.recordId, fieldReplacements);
     onClose();
   };
 
@@ -188,10 +277,17 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
           <>
             <div style={{ marginBottom: '20px' }}>
               <p style={{ margin: '0 0 10px 0', color: '#666' }}>
-                为每个参数指定新的值。如果不需要替换，请保持原值不变。
+                为每个参数组指定新的值。修改一个参数组中的参数值将应用于该组中的所有字段。
               </p>
               {errorMessage && (
-                <div style={{ color: '#d32f2f', marginBottom: '10px' }}>
+                <div style={{ 
+                  color: autoFixed ? '#4CAF50' : '#d32f2f', 
+                  marginBottom: '10px',
+                  padding: '10px',
+                  backgroundColor: autoFixed ? '#E8F5E9' : '#FFEBEE',
+                  borderRadius: '4px',
+                  border: `1px solid ${autoFixed ? '#A5D6A7' : '#FFCDD2'}`
+                }}>
                   {errorMessage}
                 </div>
               )}
@@ -225,31 +321,26 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
                     参数替换:
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {fields.map(fieldName => {
-                      // 获取该字段的所有参数
-                      const fieldParams = record.differences.find(diff => diff.fieldName === fieldName)?.parameters || [];
-                      
-                      return fieldParams.map(param => (
-                        <div key={`${fieldName}-${param}`} style={{ display: 'flex', alignItems: 'center' }}>
-                          <span style={{ width: '120px', fontWeight: 500 }}>{fieldName}:</span>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <span style={{ marginRight: '5px', color: '#666' }}>{param} →</span>
-                            <input
-                              type="text"
-                              value={replacements[fieldName]?.[param] || param}
-                              onChange={(e) => handleReplacementChange(fieldName, param, e.target.value)}
-                              style={{
-                                padding: '8px 10px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                width: '60px',
-                                fontSize: '14px'
-                              }}
-                            />
-                          </div>
+                    {paramKey.split(',').map(param => (
+                      <div key={param} style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ width: '120px', fontWeight: 500 }}>参数 {param}:</span>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span style={{ marginRight: '5px', color: '#666' }}>{param} →</span>
+                          <input
+                            type="text"
+                            value={groupReplacements[paramKey]?.[Number(param)] || Number(param)}
+                            onChange={(e) => handleReplacementChange(paramKey, Number(param), e.target.value)}
+                            style={{
+                              padding: '8px 10px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              width: '60px',
+                              fontSize: '14px'
+                            }}
+                          />
                         </div>
-                      ));
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -272,14 +363,13 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
               </button>
               <button
                 onClick={handleSave}
-                disabled={!isValid}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: isValid ? '#1a73e8' : '#ccc',
+                  backgroundColor: '#1a73e8',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: isValid ? 'pointer' : 'not-allowed',
+                  cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: 500
                 }}
@@ -728,8 +818,8 @@ const App: React.FC = () => {
       
       // 更新记录
       if (fieldsToUpdate.length > 0) {
-        // 使用setRecordById方法替代updateRecord
-        await table.setRecordById(recordId, fieldsToUpdate);
+        // 使用正确的方法更新记录
+        await table.updateRecord(recordId, fieldsToUpdate);
         setToastMessage('参数替换成功');
         
         // 重新比较记录以更新UI
