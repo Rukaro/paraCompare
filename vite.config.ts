@@ -6,11 +6,18 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist',
-    sourcemap: false,
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: undefined,
       },
     },
   },
+  server: {
+    host: true,
+    port: 3000
+  },
+  resolve: {
+    extensions: ['.js', '.jsx', '.ts', '.tsx']
+  }
 }); 
