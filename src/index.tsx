@@ -417,75 +417,151 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>参数对照表</h2>
+    <div style={{ 
+      padding: '24px', 
+      maxWidth: '1200px', 
+      margin: '0 auto',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      color: '#333'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '24px',
+        borderBottom: '1px solid #eaeaea',
+        paddingBottom: '16px'
+      }}>
+        <h2 style={{ 
+          margin: 0, 
+          fontSize: '24px', 
+          fontWeight: 600,
+          color: '#1a73e8'
+        }}>参数对照表</h2>
+        
+        <button 
+          onClick={compareAllRecords}
+          disabled={isComparing}
+          style={{ 
+            padding: '10px 20px', 
+            backgroundColor: isComparing ? '#ccc' : '#1a73e8',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: isComparing ? 'not-allowed' : 'pointer',
+            fontWeight: 500,
+            fontSize: '14px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            transition: 'background-color 0.2s, transform 0.1s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+          onMouseOver={e => !isComparing && (e.currentTarget.style.transform = 'translateY(-1px)')}
+          onMouseOut={e => !isComparing && (e.currentTarget.style.transform = 'translateY(0)')}
+        >
+          {isComparing ? (
+            <>
+              <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid white', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></span>
+              比较中...
+            </>
+          ) : '比较所有记录'}
+        </button>
+      </div>
       
       {/* 字段选择下拉菜单 */}
-      <div style={{ marginBottom: '20px', position: 'relative' }}>
-        <h3>选择要比较的字段</h3>
+      <div style={{ 
+        marginBottom: '24px', 
+        position: 'relative',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        padding: '16px',
+        border: '1px solid #eaeaea'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 12px 0', 
+          fontSize: '16px', 
+          fontWeight: 500,
+          color: '#555'
+        }}>选择要比较的字段</h3>
         <div 
           style={{ 
-            border: '1px solid #ccc', 
+            border: '1px solid #ddd', 
             borderRadius: '4px', 
-            padding: '8px 12px', 
+            padding: '10px 14px', 
             cursor: 'pointer',
             backgroundColor: 'white',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            transition: 'border-color 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
           }}
           onClick={toggleDropdown}
+          onMouseOver={e => e.currentTarget.style.borderColor = '#1a73e8'}
+          onMouseOut={e => e.currentTarget.style.borderColor = '#ddd'}
         >
-          <span>
+          <span style={{ color: selectedFields.length === 0 ? '#999' : '#333' }}>
             {selectedFields.length === 0 
               ? '请选择字段' 
               : selectedFields.length === fieldOptions.length 
                 ? '已选择所有字段' 
                 : `已选择 ${selectedFields.length}/${fieldOptions.length} 个字段`}
           </span>
-          <span>{isDropdownOpen ? '▲' : '▼'}</span>
+          <span style={{ color: '#666' }}>{isDropdownOpen ? '▲' : '▼'}</span>
         </div>
         
         {isDropdownOpen && (
           <div style={{ 
-            border: '1px solid #ccc', 
+            border: '1px solid #ddd', 
             borderRadius: '4px', 
-            padding: '8px',
-            marginTop: '5px',
+            padding: '12px',
+            marginTop: '8px',
             maxHeight: '300px',
             overflowY: 'auto',
             backgroundColor: 'white',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
             zIndex: 1000
           }}>
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              marginBottom: '8px',
-              paddingBottom: '8px',
+              marginBottom: '12px',
+              paddingBottom: '12px',
               borderBottom: '1px solid #eee'
             }}>
               <button 
                 onClick={selectAllFields}
                 style={{ 
-                  padding: '4px 8px', 
-                  backgroundColor: '#f0f0f0', 
+                  padding: '6px 12px', 
+                  backgroundColor: '#f8f9fa', 
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  color: '#333',
+                  fontWeight: 500,
+                  transition: 'background-color 0.2s'
                 }}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = '#e9ecef'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
               >
                 全选
               </button>
               <button 
                 onClick={deselectAllFields}
                 style={{ 
-                  padding: '4px 8px', 
-                  backgroundColor: '#f0f0f0', 
+                  padding: '6px 12px', 
+                  backgroundColor: '#f8f9fa', 
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  color: '#333',
+                  fontWeight: 500,
+                  transition: 'background-color 0.2s'
                 }}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = '#e9ecef'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
               >
                 取消全选
               </button>
@@ -494,62 +570,146 @@ const App: React.FC = () => {
               <div 
                 key={option.id} 
                 style={{ 
-                  padding: '6px 0',
+                  padding: '8px 0',
                   display: 'flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  transition: 'background-color 0.2s',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
                 }}
+                onMouseOver={e => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                onClick={() => handleFieldSelectionChange(option.id)}
               >
                 <input
                   type="checkbox"
                   checked={option.selected}
-                  onChange={() => handleFieldSelectionChange(option.id)}
-                  style={{ marginRight: '8px' }}
+                  onChange={() => {}}
+                  style={{ 
+                    marginRight: '10px',
+                    width: '16px',
+                    height: '16px',
+                    cursor: 'pointer'
+                  }}
                 />
-                <span>{option.name}</span>
+                <span style={{ fontSize: '14px' }}>{option.name}</span>
               </div>
             ))}
           </div>
         )}
       </div>
       
-      <button 
-        onClick={compareAllRecords}
-        disabled={isComparing}
-        style={{ marginBottom: '20px', padding: '8px 16px' }}
-      >
-        {isComparing ? '比较中...' : '比较所有记录'}
-      </button>
-      
       {comparisons.length > 0 && (
-        <div style={{ marginBottom: '20px' }}>
-          <h3>不一致的记录 ({comparisons.length})</h3>
+        <div style={{ 
+          marginBottom: '24px',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          border: '1px solid #eaeaea',
+          overflow: 'hidden'
+        }}>
+          <div style={{ 
+            padding: '16px',
+            borderBottom: '1px solid #eaeaea',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <h3 style={{ 
+              margin: 0, 
+              fontSize: '18px', 
+              fontWeight: 500,
+              color: '#333'
+            }}>不一致的记录 ({comparisons.length})</h3>
+          </div>
+          
           {comparisons.map((comparison, index) => (
-            <div key={index} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ddd' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h4 style={{ margin: 0 }}>记录: {comparison.recordName}</h4>
+            <div 
+              key={index} 
+              style={{ 
+                padding: '16px',
+                borderBottom: index < comparisons.length - 1 ? '1px solid #eaeaea' : 'none',
+                backgroundColor: index % 2 === 0 ? 'white' : '#fafafa'
+              }}
+            >
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '12px'
+              }}>
+                <h4 style={{ 
+                  margin: 0, 
+                  fontSize: '16px', 
+                  fontWeight: 500,
+                  color: '#333'
+                }}>记录: {comparison.recordName}</h4>
                 <button 
                   onClick={() => copyRecordContent(comparison)}
-                  style={{ padding: '5px 10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  style={{ 
+                    padding: '6px 12px', 
+                    backgroundColor: '#4CAF50', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '4px', 
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    transition: 'background-color 0.2s, transform 0.1s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}
+                  onMouseOver={e => {
+                    e.currentTarget.style.backgroundColor = '#43a047';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseOut={e => {
+                    e.currentTarget.style.backgroundColor = '#4CAF50';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
                 >
                   复制
                 </button>
               </div>
-              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th style={{ border: '1px solid #ddd', padding: '8px' }}>字段名</th>
-                    <th style={{ border: '1px solid #ddd', padding: '8px' }}>参数列表</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparison.differences.map((diff, diffIndex) => (
-                    <tr key={diffIndex}>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{diff.fieldName}</td>
-                      <td style={{ border: '1px solid #ddd', padding: '8px' }}>{diff.parameters.join(', ')}</td>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ 
+                  borderCollapse: 'collapse', 
+                  width: '100%',
+                  fontSize: '14px'
+                }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f5f5f5' }}>
+                      <th style={{ 
+                        border: '1px solid #e0e0e0', 
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                        fontWeight: 500,
+                        color: '#555'
+                      }}>字段名</th>
+                      <th style={{ 
+                        border: '1px solid #e0e0e0', 
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                        fontWeight: 500,
+                        color: '#555'
+                      }}>参数列表</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {comparison.differences.map((diff, diffIndex) => (
+                      <tr key={diffIndex} style={{ backgroundColor: diffIndex % 2 === 0 ? 'white' : '#fafafa' }}>
+                        <td style={{ 
+                          border: '1px solid #e0e0e0', 
+                          padding: '10px 12px',
+                          color: '#333'
+                        }}>{diff.fieldName}</td>
+                        <td style={{ 
+                          border: '1px solid #e0e0e0', 
+                          padding: '10px 12px',
+                          color: '#333'
+                        }}>{diff.parameters.join(', ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
         </div>
@@ -560,6 +720,15 @@ const App: React.FC = () => {
       
       {/* 绿框飘字提示 */}
       {toastMessage && <GreenToast message={toastMessage} onClose={() => setToastMessage('')} />}
+      
+      <style>
+        {`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </div>
   );
 };
