@@ -34,6 +34,233 @@ interface FieldOption {
   selected: boolean;
 }
 
+// 参数编辑弹窗组件
+interface ParameterEditModalProps {
+  record: RecordComparison;
+  onClose: () => void;
+  onSave: (recordId: string, replacements: Record<string, Record<number, number>>) => void;
+}
+
+const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose, onSave }) => {
+  const [parameterGroups, setParameterGroups] = useState<Record<number, string[]>>({});
+  const [replacements, setReplacements] = useState<Record<string, Record<number, number>>>({});
+  const [isValid, setIsValid] = useState(true);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // 初始化参数分组和替换值
+  useEffect(() => {
+    // 收集所有参数
+    const allParameters = new Set<number>();
+    record.differences.forEach(diff => {
+      diff.parameters.forEach(param => allParameters.add(param));
+    });
+
+    // 按参数分组字段
+    const groups: Record<number, string[]> = {};
+    allParameters.forEach(param => {
+      groups[param] = record.differences
+        .filter(diff => diff.parameters.includes(param))
+        .map(diff => diff.fieldName);
+    });
+
+    setParameterGroups(groups);
+
+    // 初始化替换值
+    const initialReplacements: Record<string, Record<number, number>> = {};
+    record.differences.forEach(diff => {
+      initialReplacements[diff.fieldName] = {};
+      diff.parameters.forEach(param => {
+        initialReplacements[diff.fieldName][param] = param; // 默认不替换
+      });
+    });
+    setReplacements(initialReplacements);
+  }, [record]);
+
+  // 验证替换是否有效
+  useEffect(() => {
+    // 检查是否有循环替换（例如 1->2 和 2->1）
+    const hasCircularReplacements = Object.values(replacements).some(fieldReplacements => {
+      const values = new Set<number>();
+      const replacedValues = new Set<number>();
+      
+      // 收集所有原始值和替换值
+      Object.entries(fieldReplacements).forEach(([original, replaced]) => {
+        values.add(Number(original));
+        replacedValues.add(replaced);
+      });
+      
+      // 检查是否有循环
+      for (const value of values) {
+        if (replacedValues.has(value) && fieldReplacements[value] !== value) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
+    
+    setIsValid(!hasCircularReplacements);
+    if (hasCircularReplacements) {
+      setErrorMessage('检测到循环替换，例如同时将1替换为2且2替换为1');
+    } else {
+      setErrorMessage('');
+    }
+  }, [replacements]);
+
+  const handleReplacementChange = (fieldName: string, originalParam: number, newValue: string) => {
+    const newReplacements = { ...replacements };
+    newReplacements[fieldName] = { ...newReplacements[fieldName] };
+    
+    // 如果输入为空或不是数字，则恢复为原始值
+    if (!newValue || isNaN(Number(newValue))) {
+      newReplacements[fieldName][originalParam] = originalParam;
+    } else {
+      newReplacements[fieldName][originalParam] = Number(newValue);
+    }
+    
+    setReplacements(newReplacements);
+  };
+
+  const handleSave = () => {
+    onSave(record.recordId, replacements);
+    onClose();
+  };
+
+  // 检查参数数量是否一致
+  const hasConsistentParameterCount = () => {
+    if (record.differences.length <= 1) return true;
+    
+    const firstParamCount = record.differences[0].parameters.length;
+    return record.differences.every(diff => diff.parameters.length === firstParamCount);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        width: '80%',
+        maxWidth: '800px',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+        padding: '20px'
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          borderBottom: '1px solid #eaeaea',
+          paddingBottom: '15px'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 500 }}>编辑参数 - {record.recordName}</h3>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '20px',
+              cursor: 'pointer',
+              color: '#666'
+            }}
+          >
+            ×
+          </button>
+        </div>
+        
+        {!hasConsistentParameterCount() ? (
+          <div style={{ color: '#d32f2f', marginBottom: '20px' }}>
+            参数数量不一致，无法编辑。请确保所有字段的参数数量相同。
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ margin: '0 0 10px 0', color: '#666' }}>
+                为每个参数指定新的值。如果不需要替换，请保持原值不变。
+              </p>
+              {errorMessage && (
+                <div style={{ color: '#d32f2f', marginBottom: '10px' }}>
+                  {errorMessage}
+                </div>
+              )}
+            </div>
+            
+            {Object.entries(parameterGroups).map(([param, fields]) => (
+              <div key={param} style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '6px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>参数 {param}</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {fields.map(fieldName => (
+                    <div key={fieldName} style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{ width: '120px', fontWeight: 500 }}>{fieldName}:</span>
+                      <input
+                        type="text"
+                        value={replacements[fieldName]?.[Number(param)] || param}
+                        onChange={(e) => handleReplacementChange(fieldName, Number(param), e.target.value)}
+                        style={{
+                          padding: '8px 10px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          width: '80px',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#f1f3f4',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!isValid}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: isValid ? '#1a73e8' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isValid ? 'pointer' : 'not-allowed',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+              >
+                保存
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // 添加飘字提示组件
 const FloatingMessage: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
   const [isFading, setIsFading] = useState(false);
@@ -136,6 +363,7 @@ const App: React.FC = () => {
   const [floatingMessage, setFloatingMessage] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<RecordComparison | null>(null);
 
   const extractParametersFromRecord = async (record: any, fields: any[], fieldMetaList: any[]): Promise<ParameterInfo[]> => {
     const paramInfo: ParameterInfo[] = [];
@@ -416,6 +644,69 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // 检查参数数量是否一致
+  const hasConsistentParameterCount = (record: RecordComparison) => {
+    if (record.differences.length <= 1) return true;
+    
+    const firstParamCount = record.differences[0].parameters.length;
+    return record.differences.every(diff => diff.parameters.length === firstParamCount);
+  };
+
+  // 替换参数
+  const replaceParameters = async (recordId: string, replacements: Record<string, Record<number, number>>) => {
+    try {
+      const table = await bitable.base.getActiveTable();
+      const view = await table.getActiveView();
+      const fieldMetaList = await view.getFieldMetaList();
+      const fields = await table.getFieldList();
+      
+      // 获取记录
+      const record = await table.getRecordById(recordId);
+      
+      // 获取需要更新的字段
+      const fieldsToUpdate: { fieldId: string; value: string }[] = [];
+      
+      for (const [fieldName, paramReplacements] of Object.entries(replacements)) {
+        // 查找字段ID
+        const fieldMeta = fieldMetaList.find(meta => meta.name === fieldName);
+        if (!fieldMeta) continue;
+        
+        const fieldId = fieldMeta.id;
+        const cellValue = record.fields[fieldId];
+        
+        if (Array.isArray(cellValue) && cellValue.length > 0) {
+          const cell = cellValue[0] as TextCell;
+          if (cell.type === 'text' && typeof cell.text === 'string') {
+            let newText = cell.text;
+            
+            // 替换所有参数
+            for (const [originalParam, newParam] of Object.entries(paramReplacements)) {
+              if (Number(originalParam) !== Number(newParam)) {
+                // 使用正则表达式替换参数，确保只替换参数而不是普通数字
+                const regex = new RegExp(`\\{${originalParam}\\}`, 'g');
+                newText = newText.replace(regex, `{${newParam}}`);
+              }
+            }
+            
+            fieldsToUpdate.push({ fieldId, value: newText });
+          }
+        }
+      }
+      
+      // 更新记录
+      if (fieldsToUpdate.length > 0) {
+        await table.updateRecord(recordId, fieldsToUpdate);
+        setToastMessage('参数替换成功');
+        
+        // 重新比较记录以更新UI
+        await compareAllRecords();
+      }
+    } catch (error) {
+      console.error('Error replacing parameters:', error);
+      setToastMessage(`替换参数失败: ${(error as Error).message}`);
+    }
+  };
+
   return (
     <div style={{ 
       padding: '24px', 
@@ -642,31 +933,53 @@ const App: React.FC = () => {
                   fontWeight: 500,
                   color: '#333'
                 }}>记录: {comparison.recordName}</h4>
-                <button 
-                  onClick={() => copyRecordContent(comparison)}
-                  style={{ 
-                    padding: '6px 12px', 
-                    backgroundColor: '#4CAF50', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '4px', 
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    transition: 'background-color 0.2s, transform 0.1s',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                  }}
-                  onMouseOver={e => {
-                    e.currentTarget.style.backgroundColor = '#43a047';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseOut={e => {
-                    e.currentTarget.style.backgroundColor = '#4CAF50';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  复制
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={() => setEditingRecord(comparison)}
+                    disabled={!hasConsistentParameterCount(comparison)}
+                    style={{ 
+                      padding: '6px 12px', 
+                      backgroundColor: hasConsistentParameterCount(comparison) ? '#1a73e8' : '#ccc', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '4px', 
+                      cursor: hasConsistentParameterCount(comparison) ? 'pointer' : 'not-allowed',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'background-color 0.2s, transform 0.1s',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseOver={e => hasConsistentParameterCount(comparison) && (e.currentTarget.style.transform = 'translateY(-1px)')}
+                    onMouseOut={e => hasConsistentParameterCount(comparison) && (e.currentTarget.style.transform = 'translateY(0)')}
+                  >
+                    编辑
+                  </button>
+                  <button 
+                    onClick={() => copyRecordContent(comparison)}
+                    style={{ 
+                      padding: '6px 12px', 
+                      backgroundColor: '#4CAF50', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      transition: 'background-color 0.2s, transform 0.1s',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseOver={e => {
+                      e.currentTarget.style.backgroundColor = '#43a047';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseOut={e => {
+                      e.currentTarget.style.backgroundColor = '#4CAF50';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    复制
+                  </button>
+                </div>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ 
@@ -720,6 +1033,15 @@ const App: React.FC = () => {
       
       {/* 绿框飘字提示 */}
       {toastMessage && <GreenToast message={toastMessage} onClose={() => setToastMessage('')} />}
+      
+      {/* 参数编辑弹窗 */}
+      {editingRecord && (
+        <ParameterEditModal 
+          record={editingRecord} 
+          onClose={() => setEditingRecord(null)} 
+          onSave={replaceParameters} 
+        />
+      )}
       
       <style>
         {`
