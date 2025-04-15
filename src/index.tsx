@@ -83,12 +83,58 @@ const FloatingMessage: React.FC<{ message: string; onClose: () => void }> = ({ m
   );
 };
 
+// 添加绿框飘字提示组件
+const GreenToast: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+  const [isFading, setIsFading] = useState(false);
+  
+  useEffect(() => {
+    // 1秒后开始渐隐
+    const fadeTimer = setTimeout(() => {
+      setIsFading(true);
+      
+      // 0.5秒后完全消失
+      const hideTimer = setTimeout(() => {
+        onClose();
+      }, 500);
+      
+      return () => clearTimeout(hideTimer);
+    }, 1000);
+    
+    return () => clearTimeout(fadeTimer);
+  }, [onClose]);
+  
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: 'rgba(76, 175, 80, 0.9)',
+        color: 'white',
+        padding: '12px 24px',
+        borderRadius: '4px',
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+        zIndex: 9999,
+        fontSize: '16px',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        transition: 'opacity 0.5s ease',
+        opacity: isFading ? 0 : 1
+      }}
+    >
+      {message}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [comparisons, setComparisons] = useState<RecordComparison[]>([]);
   const [isComparing, setIsComparing] = useState(false);
   const [fieldOptions, setFieldOptions] = useState<FieldOption[]>([]);
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [floatingMessage, setFloatingMessage] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string>('');
 
   const extractParametersFromRecord = async (record: any, fields: any[], fieldMetaList: any[]): Promise<ParameterInfo[]> => {
     const paramInfo: ParameterInfo[] = [];
@@ -280,18 +326,18 @@ const App: React.FC = () => {
       try {
         const successful = document.execCommand('copy');
         if (successful) {
-          setFloatingMessage(`已复制索引字段内容: ${indexFieldValue}`);
+          setToastMessage(`已复制索引字段内容: ${indexFieldValue}`);
         } else {
-          setFloatingMessage('复制失败: 无法执行复制命令');
+          setToastMessage('复制失败: 无法执行复制命令');
         }
       } catch (err) {
-        setFloatingMessage(`复制错误: ${(err as Error).message}`);
+        setToastMessage(`复制错误: ${(err as Error).message}`);
       }
       
       document.body.removeChild(textArea);
     } catch (error) {
       console.error('Error copying record content:', error);
-      setFloatingMessage(`复制错误: ${(error as Error).message}`);
+      setToastMessage(`复制错误: ${(error as Error).message}`);
     }
   };
 
@@ -403,6 +449,9 @@ const App: React.FC = () => {
       
       {/* 飘字提示 */}
       {floatingMessage && <FloatingMessage message={floatingMessage} onClose={() => setFloatingMessage('')} />}
+      
+      {/* 绿框飘字提示 */}
+      {toastMessage && <GreenToast message={toastMessage} onClose={() => setToastMessage('')} />}
     </div>
   );
 };
