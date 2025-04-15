@@ -35,7 +35,6 @@ interface FieldOption {
 }
 
 const App: React.FC = () => {
-  const [parameters, setParameters] = useState<ParameterInfo[]>([]);
   const [debug, setDebug] = useState<string>('');
   const [comparisons, setComparisons] = useState<RecordComparison[]>([]);
   const [isComparing, setIsComparing] = useState(false);
@@ -72,50 +71,6 @@ const App: React.FC = () => {
     }
     
     return paramInfo.sort((a, b) => a.order - b.order);
-  };
-
-  const compareParameters = (params1: ParameterInfo[], params2: ParameterInfo[]): { fieldName: string; expected: number[]; actual: number[] }[] => {
-    const differences: { fieldName: string; expected: number[]; actual: number[] }[] = [];
-    
-    // 创建字段ID到参数的映射
-    const params1Map = new Map(params1.map(p => [p.fieldId, p.parameters]));
-    const params2Map = new Map(params2.map(p => [p.fieldId, p.parameters]));
-    
-    // 检查所有字段
-    const allFieldIds = new Set([...params1Map.keys(), ...params2Map.keys()]);
-    
-    for (const fieldId of allFieldIds) {
-      const params1Value = params1Map.get(fieldId);
-      const params2Value = params2Map.get(fieldId);
-      
-      // 如果两个记录都没有该字段的参数，则跳过
-      if (!params1Value && !params2Value) {
-        continue;
-      }
-      
-      // 如果只有一个记录有该字段的参数，则添加差异
-      if (!params1Value || !params2Value) {
-        differences.push({
-          fieldName: params1.find(p => p.fieldId === fieldId)?.fieldName || params2.find(p => p.fieldId === fieldId)?.fieldName || fieldId,
-          expected: params1Value || [],
-          actual: params2Value || []
-        });
-      } else {
-        // 比较两个数组是否相等（忽略顺序）
-        const sortedParams1 = [...params1Value].sort((a, b) => a - b);
-        const sortedParams2 = [...params2Value].sort((a, b) => a - b);
-        
-        if (JSON.stringify(sortedParams1) !== JSON.stringify(sortedParams2)) {
-          differences.push({
-            fieldName: params1.find(p => p.fieldId === fieldId)?.fieldName || fieldId,
-            expected: params1Value,
-            actual: params2Value
-          });
-        }
-      }
-    }
-    
-    return differences;
   };
 
   const compareAllRecords = async () => {
@@ -231,49 +186,6 @@ const App: React.FC = () => {
     }
   };
 
-  const extractParameters = async () => {
-    try {
-      console.log('开始提取参数...');
-      setDebug('开始提取参数...');
-      
-      const selection = await bitable.base.getSelection();
-      console.log('当前选择:', selection);
-      setDebug(prev => prev + '\n当前选择: ' + JSON.stringify(selection));
-      
-      if (!selection.recordId) {
-        console.log('没有选中记录');
-        setDebug(prev => prev + '\n没有选中记录');
-        setParameters([]);
-        return;
-      }
-
-      const table = await bitable.base.getActiveTable();
-      const view = await table.getActiveView();
-      const fields = await table.getFieldList(); // 获取所有字段，不限制类型
-      const fieldMetaList = await view.getFieldMetaList();
-      
-      // 初始化字段选项
-      const options = fieldMetaList.map(meta => ({
-        id: meta.id,
-        name: meta.name,
-        selected: true
-      }));
-      setFieldOptions(options);
-      setSelectedFields(options.map(opt => opt.id));
-      
-      const record = await table.getRecordById(selection.recordId);
-      const paramInfo = await extractParametersFromRecord(record, fields, fieldMetaList);
-      
-      console.log('提取的参数:', paramInfo);
-      setDebug(prev => prev + '\n提取的参数: ' + JSON.stringify(paramInfo));
-      setParameters(paramInfo);
-    } catch (error) {
-      console.error('Error extracting parameters:', error);
-      setDebug(prev => prev + '\n错误: ' + (error as Error).message);
-      setParameters([]);
-    }
-  };
-
   // 添加复制记录内容的函数
   const copyRecordContent = async (comparison: RecordComparison) => {
     try {
@@ -372,24 +284,10 @@ const App: React.FC = () => {
     };
     
     initializeFieldOptions();
-    extractParameters();
-
-    // 监听选择变化
-    const offSelectionChange = bitable.base.onSelectionChange(async () => {
-      console.log('选择发生变化');
-      setDebug(prev => prev + '\n选择发生变化');
-      
-      // 重新初始化字段选项
-      await initializeFieldOptions();
-      
-      // 提取参数
-      extractParameters();
-    });
 
     return () => {
       console.log('组件卸载');
       setDebug(prev => prev + '\n组件卸载');
-      offSelectionChange();
     };
   }, []);
 
@@ -455,28 +353,6 @@ const App: React.FC = () => {
         </div>
       )}
       
-      {parameters.length === 0 ? (
-        <p>请选择一条记录以查看参数对照表</p>
-      ) : (
-        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <thead>
-            <tr>
-              <th style={{ border: '1px solid #ddd', padding: '8px' }}>字段名</th>
-              <th style={{ border: '1px solid #ddd', padding: '8px' }}>参数列表</th>
-            </tr>
-          </thead>
-          <tbody>
-            {parameters.map((info, index) => (
-              <tr key={index}>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{info.fieldName}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                  {info.parameters.join(', ')}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
       <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f5f5f5' }}>
         <h3>调试信息：</h3>
         <pre style={{ whiteSpace: 'pre-wrap' }}>{debug}</pre>
