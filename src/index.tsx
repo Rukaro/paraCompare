@@ -43,7 +43,8 @@ interface ParameterEditModalProps {
 
 const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose, onSave }) => {
   const [parameterGroups, setParameterGroups] = useState<Record<string, string[]>>({});
-  const [groupReplacements, setGroupReplacements] = useState<Record<string, Record<number, number>>>({});
+  // 使用字符串类型存储输入值，允许空值
+  const [groupReplacements, setGroupReplacements] = useState<Record<string, Record<number, string>>>({});
   const [isValid, setIsValid] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [autoFixed, setAutoFixed] = useState(false);
@@ -67,19 +68,19 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
     setParameterGroups(groups);
 
     // 初始化替换值
-    const initialReplacements: Record<string, Record<number, number>> = {};
+    const initialReplacements: Record<string, Record<number, string>> = {};
     Object.keys(groups).forEach(paramKey => {
       initialReplacements[paramKey] = {};
       const params = paramKey.split(',').map(Number);
       params.forEach(param => {
-        initialReplacements[paramKey][param] = param; // 默认不替换
+        initialReplacements[paramKey][param] = param.toString(); // 默认不替换，使用字符串类型
       });
     });
     setGroupReplacements(initialReplacements);
   }, [record]);
 
   // 检测并修复循环替换
-  const detectAndFixCircularReplacements = (replacements: Record<string, Record<number, number>>) => {
+  const detectAndFixCircularReplacements = (replacements: Record<string, Record<number, string>>) => {
     let hasCircular = false;
     const fixedReplacements = { ...replacements };
     
@@ -88,7 +89,10 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
       // 创建替换映射
       const replacementMap = new Map<number, number>();
       Object.entries(paramReplacements).forEach(([original, replaced]) => {
-        replacementMap.set(Number(original), Number(replaced));
+        // 只处理有效的数字替换
+        if (replaced !== '' && !isNaN(Number(replaced))) {
+          replacementMap.set(Number(original), Number(replaced));
+        }
       });
       
       // 检测循环
@@ -128,7 +132,7 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
         Object.entries(paramReplacements).forEach(([original, replaced]) => {
           const orig = Number(original);
           const repl = Number(replaced);
-          if (orig !== repl) {
+          if (replaced !== '' && !isNaN(repl) && orig !== repl) {
             tempReplacements.set(orig, repl);
           }
         });
@@ -160,7 +164,7 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
             // 将循环替换为直接替换到最终值
             const finalValue = chain[chain.length - 1];
             chain.slice(0, -1).forEach(value => {
-              fixedReplacements[paramKey][value] = finalValue;
+              fixedReplacements[paramKey][value] = finalValue.toString();
             });
           }
         });
@@ -191,23 +195,46 @@ const ParameterEditModal: React.FC<ParameterEditModalProps> = ({ record, onClose
     const newReplacements = { ...groupReplacements };
     newReplacements[paramKey] = { ...newReplacements[paramKey] };
     
-    // 如果输入为空或不是数字，则恢复为原始值
-    if (!newValue || isNaN(Number(newValue))) {
-      newReplacements[paramKey][originalParam] = originalParam;
-    } else {
-      newReplacements[paramKey][originalParam] = Number(newValue);
-    }
+    // 允许用户自由输入，包括空值
+    newReplacements[paramKey][originalParam] = newValue;
     
     setGroupReplacements(newReplacements);
   };
 
   const handleSave = () => {
+    // 验证所有输入是否合法
+    let isValid = true;
+    let errorMsg = '';
+    
+    // 检查每个参数组
+    for (const [paramKey, paramReplacements] of Object.entries(groupReplacements)) {
+      for (const [originalParam, newValue] of Object.entries(paramReplacements)) {
+        // 检查是否为空或非数字
+        if (newValue === '' || isNaN(Number(newValue))) {
+          isValid = false;
+          errorMsg = '参数值不能为空且必须是数字';
+          break;
+        }
+      }
+      if (!isValid) break;
+    }
+    
+    if (!isValid) {
+      setErrorMessage(errorMsg);
+      return;
+    }
+    
     // 将组替换转换为字段替换
     const fieldReplacements: Record<string, Record<number, number>> = {};
     
     Object.entries(parameterGroups).forEach(([paramKey, fields]) => {
       fields.forEach(fieldName => {
-        fieldReplacements[fieldName] = { ...groupReplacements[paramKey] };
+        // 确保所有值都是数字
+        const numericReplacements: Record<number, number> = {};
+        Object.entries(groupReplacements[paramKey]).forEach(([key, value]) => {
+          numericReplacements[Number(key)] = Number(value);
+        });
+        fieldReplacements[fieldName] = numericReplacements;
       });
     });
     
