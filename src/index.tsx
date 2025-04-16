@@ -787,7 +787,7 @@ const App: React.FC = () => {
       const record = await table.getRecordById(recordId);
       
       // 获取需要更新的字段
-      const fieldsToUpdate: { fieldId: string; value: string }[] = [];
+      const fieldsToUpdate: Record<string, any> = {};
       
       for (const [fieldName, paramReplacements] of Object.entries(replacements)) {
         // 查找字段ID
@@ -811,16 +811,23 @@ const App: React.FC = () => {
               }
             }
             
-            fieldsToUpdate.push({ fieldId, value: newText });
+            // 构建字段更新对象
+            fieldsToUpdate[fieldId] = [{ type: 'text', text: newText }];
           }
         }
       }
       
       // 更新记录
-      if (fieldsToUpdate.length > 0) {
+      if (Object.keys(fieldsToUpdate).length > 0) {
         // 使用正确的方法更新记录
+        // 根据飞书多维表格API，使用setRecord方法更新记录
+        // 构建符合IRecordValue类型的对象
+        const recordValue = {
+          fields: fieldsToUpdate
+        };
+        
         // @ts-ignore - 忽略类型检查错误，因为API可能已更新但类型定义未更新
-        await table.updateRecord(recordId, fieldsToUpdate);
+        await table.setRecord(recordId, recordValue);
         setToastMessage('参数替换成功');
         
         // 重新比较记录以更新UI
